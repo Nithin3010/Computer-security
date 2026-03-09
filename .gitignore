@@ -1,0 +1,47 @@
+# ── Virtual environment ──────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Raw and processed datasets ───────────────────────────────────
+raw_csv/
+processed/
+processed_ml/*.parquet
+processed_ml/*.pkl
+
+# Keep the small JSON mapping and nothing else from processed_ml
+!processed_ml/attack_label_mapping.json
+
+# ── Trained models ───────────────────────────────────────────────
+models/
+
+# ── Prediction / result outputs ──────────────────────────────────
+results/
+
+# ── Plot output directories ──────────────────────────────────────
+model_plots/
+explainability_plots/
+
+# ── Logs ─────────────────────────────────────────────────────────
+*.log
+run_log.txt
+
+# ── Python cache ─────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+
+# ── Jupyter / IPython ────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── OS artefacts ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE / editor ─────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp

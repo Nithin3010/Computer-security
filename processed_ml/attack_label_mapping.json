@@ -1,0 +1,16 @@
+{
+    "Benign": 0,
+    "Bot": 1,
+    "Brute Force -Web": 2,
+    "Brute Force -XSS": 3,
+    "DDOS attack-HOIC": 4,
+    "DDOS attack-LOIC-UDP": 5,
+    "DoS attacks-GoldenEye": 6,
+    "DoS attacks-Hulk": 7,
+    "DoS attacks-SlowHTTPTest": 8,
+    "DoS attacks-Slowloris": 9,
+    "FTP-BruteForce": 10,
+    "Infilteration": 11,
+    "SQL Injection": 12,
+    "SSH-Bruteforce": 13
+}
