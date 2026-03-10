@@ -49,6 +49,10 @@ OUTPUT_DIR   = "processed_ml"
 LABEL_BINARY    = "label_binary"
 LABEL_ATTACK    = "attack_type"
 
+# Sampling configuration (set to None to use full dataset)
+# For systems with limited RAM, use 1000000 or 2000000
+SAMPLE_SIZE = 2000000  # Use 2M rows instead of 6.75M to reduce memory usage
+
 TRAIN_SIZE = 0.70   # 70 % train
 VAL_SIZE   = 0.50   # 50 % of the 30 % remainder → 15 % overall
 RANDOM_STATE = 42
@@ -77,6 +81,15 @@ def load_dataset(path: str = INPUT_PATH) -> pd.DataFrame:
     log.info("Loading dataset from: %s", path)
     df = pd.read_parquet(path)
     log.info("Loaded %d rows and %d columns.", len(df), df.shape[1])
+    
+    # Sample data if SAMPLE_SIZE is set (for memory-constrained systems)
+    if SAMPLE_SIZE is not None and len(df) > SAMPLE_SIZE:
+        log.info("Sampling %d rows from %d total (random sampling) ...", 
+                 SAMPLE_SIZE, len(df))
+        # Use simple random sampling to avoid memory issues
+        df = df.sample(n=SAMPLE_SIZE, random_state=RANDOM_STATE).reset_index(drop=True)
+        log.info("After sampling: %d rows", len(df))
+    
     return df
 
 
@@ -91,7 +104,7 @@ def encode_attack_labels(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     """
     log.info("Encoding attack type labels …")
     le = LabelEncoder()
-    df = df.copy()
+    # Removed df.copy() to reduce memory usage - modifying in place
     df["label_multiclass"] = le.fit_transform(df[LABEL_ATTACK]).astype(np.int32)
 
     mapping: dict = {cls: int(idx) for idx, cls in enumerate(le.classes_)}
@@ -167,10 +180,10 @@ def clean_features(
     """
     log.info("Cleaning features: replacing inf / NaN values …")
 
-    # Replace infinities with NaN
-    X_train = X_train.replace([np.inf, -np.inf], np.nan)
-    X_val   = X_val.replace([np.inf, -np.inf], np.nan)
-    X_test  = X_test.replace([np.inf, -np.inf], np.nan)
+    # Replace infinities with NaN (in-place to save memory)
+    X_train.replace([np.inf, -np.inf], np.nan, inplace=True)
+    X_val.replace([np.inf, -np.inf], np.nan, inplace=True)
+    X_test.replace([np.inf, -np.inf], np.nan, inplace=True)
 
     # Compute medians from training split only
     train_medians = X_train.median()
@@ -178,9 +191,9 @@ def clean_features(
     inf_count = X_train.isna().sum().sum()
     log.info("  NaN / inf cells replaced in train: %d", inf_count)
 
-    X_train = X_train.fillna(train_medians)
-    X_val   = X_val.fillna(train_medians)
-    X_test  = X_test.fillna(train_medians)
+    X_train.fillna(train_medians, inplace=True)
+    X_val.fillna(train_medians, inplace=True)
+    X_test.fillna(train_medians, inplace=True)
 
     log.info("Cleaning complete.")
     return X_train, X_val, X_test
