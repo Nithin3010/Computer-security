@@ -121,6 +121,73 @@ def log_class_distribution(series: pd.Series, label: str = "attack_type") -> Non
         log.info("    %-35s  %8d  (%.2f %%)", cls, cnt, 100.0 * cnt / total)
 
 
+def display_split_distribution(
+    train_df: pd.DataFrame,
+    val_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    label_col: str = LABEL_ATTACK,
+) -> None:
+    """
+    Display a detailed table showing the distribution of each attack class
+    across train, validation, and test sets after stratified split.
+    """
+    log.info("Analyzing class distribution across splits ...")
+    
+    # Get attack type counts for each split
+    train_counts = train_df[label_col].value_counts().sort_index()
+    val_counts = val_df[label_col].value_counts().sort_index()
+    test_counts = test_df[label_col].value_counts().sort_index()
+    
+    # Get all unique classes
+    all_classes = sorted(set(train_counts.index) | set(val_counts.index) | set(test_counts.index))
+    
+    # Calculate totals
+    train_total = len(train_df)
+    val_total = len(val_df)
+    test_total = len(test_df)
+    overall_total = train_total + val_total + test_total
+    
+    # Print header
+    print("\n" + "=" * 130)
+    print("  STRATIFIED SPLIT — Class Distribution Across Train / Validation / Test")
+    print("=" * 130)
+    print(f"{'Attack Class':<30} | {'Train':>15} | {'Validation':>15} | {'Test':>15} | {'Total':>15} |")
+    print("-" * 130)
+    
+    # Print each class
+    for cls in all_classes:
+        train_count = train_counts.get(cls, 0)
+        val_count = val_counts.get(cls, 0)
+        test_count = test_counts.get(cls, 0)
+        total_count = train_count + val_count + test_count
+        
+        train_pct = 100.0 * train_count / train_total if train_total > 0 else 0
+        val_pct = 100.0 * val_count / val_total if val_total > 0 else 0
+        test_pct = 100.0 * test_count / test_total if test_total > 0 else 0
+        total_pct = 100.0 * total_count / overall_total if overall_total > 0 else 0
+        
+        print(f"{cls:<30} | {train_count:>9,} ({train_pct:>5.2f}%) | "
+              f"{val_count:>9,} ({val_pct:>5.2f}%) | "
+              f"{test_count:>9,} ({test_pct:>5.2f}%) | "
+              f"{total_count:>9,} ({total_pct:>5.2f}%) |")
+    
+    # Print totals
+    print("-" * 130)
+    print(f"{'TOTAL':<30} | {train_total:>9,} ({100.0:>5.1f}%) | "
+          f"{val_total:>9,} ({100.0:>5.1f}%) | "
+          f"{test_total:>9,} ({100.0:>5.1f}%) | "
+          f"{overall_total:>9,} ({100.0:>5.1f}%) |")
+    print("=" * 130)
+    
+    # Print split percentages
+    print(f"\nSplit Ratios:")
+    print(f"  Train      : {100.0 * train_total / overall_total:>5.1f}%  ({train_total:>10,} samples)")
+    print(f"  Validation : {100.0 * val_total / overall_total:>5.1f}%  ({val_total:>10,} samples)")
+    print(f"  Test       : {100.0 * test_total / overall_total:>5.1f}%  ({test_total:>10,} samples)")
+    print(f"  Total      : 100.0%  ({overall_total:>10,} samples)")
+    print()
+
+
 def split_dataset(
     df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -320,6 +387,9 @@ def run_pipeline() -> None:
 
     # 5. Stratified split ----------------------------------------------------
     train_df, val_df, test_df = split_dataset(df)
+    
+    # 5a. Display class distribution across splits ---------------------------
+    display_split_distribution(train_df, val_df, test_df)
 
     # 6. Separate X / y ------------------------------------------------------
     X_train = train_df[feature_cols].astype(np.float32)

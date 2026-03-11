@@ -1,0 +1,38 @@
+[
+  {
+    "dst_port": 80,
+    "flow_duration": 5000,
+    "tot_fwd_pkts": 10,
+    "tot_bwd_pkts": 8,
+    "flow_pkts/s": 3.6,
+    "fwd_pkt_len_mean": 512,
+    "bwd_pkt_len_mean": 256
+  },
+  {
+    "dst_port": 3306,
+    "flow_duration": 500,
+    "tot_fwd_pkts": 200,
+    "tot_bwd_pkts": 1,
+    "flow_pkts/s": 400,
+    "fwd_pkt_len_mean": 512,
+    "bwd_pkt_len_mean": 64
+  },
+  {
+    "dst_port": 80,
+    "flow_duration": 1000,
+    "tot_fwd_pkts": 10000,
+    "tot_bwd_pkts": 0,
+    "flow_pkts/s": 10000,
+    "fwd_pkt_len_mean": 64,
+    "bwd_pkt_len_mean": 0
+  },
+  {
+    "dst_port": 22,
+    "flow_duration": 200,
+    "tot_fwd_pkts": 500,
+    "tot_bwd_pkts": 500,
+    "flow_pkts/s": 2500,
+    "fwd_pkt_len_mean": 128,
+    "bwd_pkt_len_mean": 128
+  }
+]

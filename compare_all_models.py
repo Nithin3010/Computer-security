@@ -8,7 +8,7 @@ Models
 ------
     Random Forest  →  models/random_forest_model.pkl
     XGBoost        →  models/xgboost_model.pkl
-    Deep Neural Net →  models/dnn_model.keras
+    Deep Neural Net (PyTorch) →  models/dnn_improved_model.pth
 
 Dataset
 -------
@@ -36,9 +36,8 @@ from sklearn.metrics import (
     recall_score,
 )
 
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
-
-import tensorflow as tf
+import torch
+import torch.nn as nn
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -55,7 +54,7 @@ BATCH_SIZE   = 1024   # for DNN inference
 MODELS = {
     "Random Forest":   ("sklearn",     os.path.join("models", "random_forest_model.pkl")),
     "XGBoost":         ("sklearn",     os.path.join("models", "xgboost_model.pkl")),
-    "Deep Neural Net": ("keras",       os.path.join("models", "dnn_model.keras")),
+    "Deep Neural Net": ("pytorch",     os.path.join("models", "dnn_improved_model.pth")),
 }
 
 # ---------------------------------------------------------------------------
@@ -68,6 +67,42 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# PyTorch Model Architecture
+# ---------------------------------------------------------------------------
+
+class ImprovedDNNClassifier(nn.Module):
+    """PyTorch DNN classifier with BatchNorm for intrusion detection."""
+    
+    def __init__(self, input_dim: int, num_classes: int):
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Linear(input_dim, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            
+            nn.Linear(512, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Dropout(0.25),
+            
+            nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            
+            nn.Linear(128, 64),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            # No dropout before output layer
+            nn.Linear(64, num_classes)
+        )
+    
+    def forward(self, x):
+        return self.network(x)
 
 
 # ---------------------------------------------------------------------------
@@ -91,11 +126,38 @@ def load_test_data() -> tuple[pd.DataFrame, np.ndarray]:
 
 def load_model(name: str, kind: str, path: str):
     log.info("Loading '%s' from: %s", name, path)
-    if kind == "keras":
-        clf = tf.keras.models.load_model(path)
+    if kind == "pytorch":
+        # Load PyTorch model checkpoint
+        checkpoint = torch.load(path, map_location=torch.device('cpu'))
+        
+        # Check if checkpoint contains metadata or just weights
+        if 'model_state_dict' in checkpoint:
+            # Checkpoint contains metadata
+            input_dim = checkpoint['n_features']
+            num_classes = checkpoint['n_classes']
+            state_dict = checkpoint['model_state_dict']
+        else:
+            # Direct state dict - infer dimensions
+            first_layer_key = 'network.0.weight'
+            if first_layer_key in checkpoint:
+                input_dim = checkpoint[first_layer_key].shape[1]
+                output_layer_keys = [k for k in checkpoint.keys() if 'weight' in k and 'BatchNorm' not in k]
+                last_layer_key = max(output_layer_keys, key=lambda x: int(x.split('.')[1]))
+                num_classes = checkpoint[last_layer_key].shape[0]
+                state_dict = checkpoint
+            else:
+                # Fallback
+                input_dim = 78
+                num_classes = 14
+                state_dict = checkpoint
+        
+        clf = ImprovedDNNClassifier(input_dim, num_classes)
+        clf.load_state_dict(state_dict)
+        clf.eval()
+        log.info("Loaded '%s' (PyTorch DNN: %d → %d classes)", name, input_dim, num_classes)
     else:
         clf = joblib.load(path)
-    log.info("Loaded '%s' (%s)", name, type(clf).__name__)
+        log.info("Loaded '%s' (%s)", name, type(clf).__name__)
     return clf
 
 
@@ -106,9 +168,12 @@ def load_model(name: str, kind: str, path: str):
 def predict(clf, X: pd.DataFrame, kind: str) -> tuple[np.ndarray, float]:
     """Return (predictions, inference_seconds)."""
     t0 = time.perf_counter()
-    if kind == "keras":
-        probs  = clf.predict(X.values.astype(np.float32), batch_size=BATCH_SIZE, verbose=0)
-        y_pred = np.argmax(probs, axis=1)
+    if kind == "pytorch":
+        # PyTorch inference
+        X_tensor = torch.from_numpy(X.values.astype(np.float32))
+        with torch.no_grad():
+            outputs = clf(X_tensor)
+            y_pred = torch.argmax(outputs, dim=1).numpy()
     else:
         y_pred = clf.predict(X)
     elapsed = time.perf_counter() - t0
@@ -130,8 +195,13 @@ def evaluate_model(
         log.warning("Model file not found, skipping: %s", path)
         return None
 
-    clf = load_model(name, kind, path)
-    y_pred, elapsed = predict(clf, X_test, kind)
+    try:
+        clf = load_model(name, kind, path)
+        y_pred, elapsed = predict(clf, X_test, kind)
+    except Exception as e:
+        log.error("Failed to load or predict with '%s': %s", name, str(e))
+        log.warning("Skipping corrupted model: %s", path)
+        return None
 
     acc  = accuracy_score(y_test, y_pred)
     prec = precision_score(y_test, y_pred, average="macro", zero_division=0)

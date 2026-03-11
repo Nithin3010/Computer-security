@@ -33,7 +33,7 @@ import pandas as pd
 # Configuration
 # ---------------------------------------------------------------------------
 
-MODEL_PATH   = os.path.join("models",        "xgboost_model.pkl")
+MODEL_PATH   = os.path.join("models",        "xgboost_balanced_model.pkl")  # Using BALANCED model
 SCALER_PATH  = os.path.join("processed_ml",  "scaler.pkl")
 MAPPING_PATH = os.path.join("processed_ml",  "attack_label_mapping.json")
 
